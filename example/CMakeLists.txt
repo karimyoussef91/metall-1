@@ -22,6 +22,8 @@ add_executable(object_attribute object_attribute)
 
 add_executable(object_attribute_api_list object_attribute_api_list)
 
+add_executable(test_sparsestore_repeat test_sparsestore_repeat)
+
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message(STATUS "Skip building the examples that use multi-level containers")
 else()
