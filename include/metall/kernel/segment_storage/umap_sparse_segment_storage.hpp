@@ -100,7 +100,9 @@ class umap_sparse_segment_storage {
   /// \brief Gets the size of an existing segment.
   /// This is a static version of size() method.
   static size_type get_size(const std::string &base_path) {
-    return 0;
+    const auto directory_name = priv_make_file_name(base_path);
+    std::cout << "Directory name from Metall: " << directory_name << std::endl;
+    return Umap::SparseStore::get_capacity(directory_name);
   }
 
   /// \brief Creates a new segment by mapping file(s) to the given VM address.
@@ -163,10 +165,11 @@ class umap_sparse_segment_storage {
       return false;
     } 
     
-    store = new Umap::SparseStore(file_name,read_only);
-    m_segment_size = store->get_current_capacity(); 
+    // store = new Umap::SparseStore(file_name,read_only);
+    std::cout << "Getting Size From Sparse Segment Storage" << std::endl;
+    m_segment_size = get_size(base_path);// store->get_current_capacity(); 
     assert(m_segment_size % page_size() == 0);
-    if (!priv_map_file_open(file_name, static_cast<char *>(m_segment), read_only, store)) {
+    if (!priv_map_file_open(file_name, m_segment_size, static_cast<char *>(m_segment), read_only)) { // , store)) {
       std::abort(); // Fatal error
     }
 
@@ -331,7 +334,7 @@ class umap_sparse_segment_storage {
     return true;
   }
 
-  bool priv_map_file_open(const std::string &path, void *const addr, const bool read_only, Umap::SparseStore* store){
+  bool priv_map_file_open(const std::string &path, const size_type file_size, void *const addr, const bool read_only){
     assert(!path.empty());
     assert(addr);
 
@@ -344,8 +347,10 @@ class umap_sparse_segment_storage {
     }
     
     
-    
-    uint64_t region_size = store->get_current_capacity();
+    store = new Umap::SparseStore(path,read_only);
+    uint64_t region_size = file_size;
+
+    std::cout << "current SparseStore capacity: " << region_size  << std::endl;
     
     if (store->get_directory_creation_status() != 0){
        std::cout << "Error: Failed to create backing directory for SparseStore " << path << std::endl;
