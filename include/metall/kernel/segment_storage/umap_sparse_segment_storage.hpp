@@ -101,7 +101,6 @@ class umap_sparse_segment_storage {
   /// This is a static version of size() method.
   static size_type get_size(const std::string &base_path) {
     const auto directory_name = priv_make_file_name(base_path);
-    std::cout << "Directory name from Metall: " << directory_name << std::endl;
     return Umap::SparseStore::get_capacity(directory_name);
   }
 
@@ -166,7 +165,6 @@ class umap_sparse_segment_storage {
     } 
     
     // store = new Umap::SparseStore(file_name,read_only);
-    std::cout << "Getting Size From Sparse Segment Storage" << std::endl;
     m_segment_size = get_size(base_path);// store->get_current_capacity(); 
     assert(m_segment_size % page_size() == 0);
     if (!priv_map_file_open(file_name, m_segment_size, static_cast<char *>(m_segment), read_only)) { // , store)) {
@@ -288,9 +286,7 @@ class umap_sparse_segment_storage {
       file_granularity = SPARSE_STORE_FILE_GRANULARITY_DEFAULT;
     }
     else{
-      std::cout << "FILE GRANULARITY STR: " << file_granularity_str << std::endl;
       file_granularity = (size_t) std::stol(file_granularity_str);
-      std::cout << "FILE GRANULARITY: " << file_granularity << std::endl;
     }
     return file_granularity; 
   }
@@ -315,7 +311,9 @@ class umap_sparse_segment_storage {
     
     
     if (store->get_directory_creation_status() != 0){
-       std::cout << "Error: Failed to create backing directory for SparseStore " << path << std::endl;
+       std::ostringstream ss;
+       ss << "Failed to create backing store directory at: " << path;
+       perror(ss.str().c_str());
        return false;
     }
 
@@ -350,11 +348,11 @@ class umap_sparse_segment_storage {
     store = new Umap::SparseStore(path,read_only);
     uint64_t region_size = file_size;
 
-    std::cout << "current SparseStore capacity: " << region_size  << std::endl;
-    
     if (store->get_directory_creation_status() != 0){
-       std::cout << "Error: Failed to create backing directory for SparseStore " << path << std::endl;
-       return false;
+      std::ostringstream ss;
+      ss << "Failed to open backing store directory at: " << path;
+      perror(ss.str().c_str()); 
+      return false;
     }
 
        
