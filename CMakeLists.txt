@@ -181,6 +181,10 @@ if (USE_SORTED_BIN)
 endif()
 
 if (USE_PRIVATE_MAP_AND_MSYNC_DIFF)
+    if (USE_PRIVATE_MAP_AND_MSYNC_DIFF AND USE_PRIVATEER)
+        message(FATAL_ERROR "USE_PRIVATE_MAP_AND_MSYNC and USE_PRIVATEER options cannot coexist")
+    endif()
+
     if (USE_PRIVATE_MAP_AND_MSYNC_DIFF AND UMAP_ROOT)
         message(FATAL_ERROR "USE_PRIVATE_MAP_AND_MSYNC and UMAP_ROOT options cannot coexist")
     endif()
@@ -192,6 +196,10 @@ if (USE_PRIVATE_MAP_AND_MSYNC_DIFF)
 endif()
 
 if (USE_PRIVATE_MAP_AND_PWRITE)
+    if (USE_PRIVATE_MAP_AND_PWRITE AND USE_PRIVATEER)
+      message(FATAL_ERROR "USE_PRIVATE_MAP_AND_PWRITE and USE_PRIVATEER options cannot coexist")
+    endif()
+
     if (USE_PRIVATE_MAP_AND_PWRITE AND UMAP_ROOT)
         message(FATAL_ERROR "USE_PRIVATE_MAP_AND_PWRITE and UMAP_ROOT options cannot coexist")
     endif()
@@ -203,6 +211,10 @@ if (USE_PRIVATE_MAP_AND_PWRITE)
 endif()
 
 if (USE_ANONYMOUS_NEW_MAP)
+    if (USE_ANONYMOUS_NEW_MAP AND USE_PRIVATEER)
+        message(FATAL_ERROR "USE_ANONYMOUS_NEW_MAP and USE_PRIVATEER options cannot coexist")
+    endif()
+
     if (USE_ANONYMOUS_NEW_MAP AND UMAP_ROOT)
         message(FATAL_ERROR "USE_ANONYMOUS_NEW_MAP and UMAP_ROOT options cannot coexist")
     endif()
@@ -213,6 +225,27 @@ if (USE_ANONYMOUS_NEW_MAP)
 
     add_definitions(-DMETALL_USE_ANONYMOUS_NEW_MAP)
     message(STATUS "Use the anonymous map for new map region")
+endif()
+
+if (USE_PRIVATEER)
+    if (USE_PARIVATEER AND UMAP_ROOT)
+        message(FATAL_ERROR "USE_PRIVATEER and UMAP_ROOT cannot coexist")
+    endif()
+
+    if (USE_PRIVATEER AND USE_ANONYMOUS_NEW_MAP)
+        message(FATAL_ERROR "USE_PRIVATEER and USE_ANONYMOUS_NEW_MAP cannot coexist")
+    endif()
+
+    if (USE_PRIVATEER AND USE_PRIVATE_MAP_AND_PWRITE)
+        message(FATAL_ERROR "USE_PRIVATEER and USE_PRIVATE_MAP_AND_PWRITE cannot coexist")
+    endif()
+
+    if (USE_PRIVATEER AND USE_PRIVATE_MAP_AND_MSYNC_DIFF)
+        message(FATAL_ERROR "USE_PRIVATEER and USE_PRIVATE_MAP_AND_MSYNC_DIFF cannot coexist")
+    endif()
+
+    add_definition(-DMETALL_USE_PRIVATEER)
+    message(STATUS "Using Privateer for memory mapping")
 endif()
 
 if (MAX_COPY_THREADS GREATER 0)

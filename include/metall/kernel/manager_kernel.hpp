@@ -39,6 +39,8 @@
 
 #ifdef METALL_USE_UMAP
 #include <metall/kernel/segment_storage/umap_sparse_segment_storage.hpp>
+#elif METALL_USE_PRIVATEER
+#include <metall/kernel/segment_storage/privateer_segment_storage.hpp>
 #else
 #include <metall/kernel/segment_storage/mmap_segment_storage.hpp>
 #endif
