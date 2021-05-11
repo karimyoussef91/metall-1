@@ -177,8 +177,8 @@ if (USE_SORTED_BIN)
 endif()
 
 if (USE_ANONYMOUS_NEW_MAP)
-    if (USE_ANONYMOUS_NEW_MAP AND USE_PRIVATEER)
-        message(FATAL_ERROR "USE_ANONYMOUS_NEW_MAP and USE_PRIVATEER options cannot coexist")
+    if (USE_ANONYMOUS_NEW_MAP AND PRIVATEER_INCLUDE_PATH)
+        message(FATAL_ERROR "USE_ANONYMOUS_NEW_MAP and PRIVATEER_INCLUDE_PATH options cannot coexist")
     endif()
 
     if (USE_ANONYMOUS_NEW_MAP AND UMAP_ROOT)
@@ -189,12 +189,30 @@ if (USE_ANONYMOUS_NEW_MAP)
     message(STATUS "Use the anonymous map for new map region")
 endif()
 
-if (USE_PRIVATEER)
-    if (USE_PARIVATEER AND UMAP_ROOT)
-        message(FATAL_ERROR "USE_PRIVATEER and UMAP_ROOT cannot coexist")
+if (PRIVATEER_INCLUDE_PATH)
+    if (PRIVATEER_INCLUDE_PATH AND UMAP_ROOT)
+        message(FATAL_ERROR "PRIVATEER_INCLUDE_PATH and UMAP_ROOT cannot coexist")
     endif()
-    add_definition(-DMETALL_USE_PRIVATEER)
-    message(STATUS "Using Privateer for memory mapping")
+    
+    FIND_PACKAGE( OpenMP REQUIRED )
+    if(OPENMP_FOUND)
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+      set(CMAKE_EXE_LINKER_FLAGS
+      "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+
+      FIND_PACKAGE(OpenSSL)
+      link_libraries(OpenSSL::SSL)
+      link_libraries(OpenSSL::Crypto)
+
+      add_definitions(-DMETALL_USE_PRIVATEER)
+      add_definitions(-DUSE_PAGEMAP)
+      include_directories(${PRIVATEER_INCLUDE_PATH})
+      message(STATUS "Using Privateer for memory mapping")
+    else()
+      message(FATAL_ERROR "OpenMP is required to build Metall with Privateer")
+    endif()
+
 endif()
 
 # -------------------------------------------------------------------------------- #

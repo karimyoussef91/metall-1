@@ -104,6 +104,8 @@ class manager_kernel {
   using segment_storage_type =
 #ifdef METALL_USE_UMAP
   umap_sparse_segment_storage<difference_type, size_type>;
+#elif METALL_USE_PRIVATEER
+  privateer_segment_storage<difference_type, size_type>;
 #else
   mmap_segment_storage<difference_type, size_type>;
 #endif

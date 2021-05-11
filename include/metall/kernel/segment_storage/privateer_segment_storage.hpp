@@ -3,8 +3,8 @@
 //
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
-#ifndef METALL_DETAILL_SEGMENT_STORAGE_UMAP_SPARSE_SEGMENT_STORAGE_HPP
-#define METALL_DETAILL_SEGMENT_STORAGE_UMAP_SPARSE_SEGMENT_STORAGE_HPP
+#ifndef METALL_DETAILL_SEGMENT_STORAGE_PRIVATEER_SEGMENT_STORAGE_HPP
+#define METALL_DETAILL_SEGMENT_STORAGE_PRIVATEER_SEGMENT_STORAGE_HPP
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -26,7 +26,6 @@
 #include <metall/detail/utilities.hpp>
 #include <metall/detail/time.hpp>
 
-// #include "umap_sparse_store.hpp"
 
 namespace metall {
 namespace kernel {
@@ -36,35 +35,37 @@ namespace mdtl = metall::mtlldetail;
 }
 
 template <typename different_type, typename size_type>
-class umap_sparse_segment_storage {
+class privateer_segment_storage {
 
  public:
   // -------------------------------------------------------------------------------- //
   // Constructor & assign operator
   // -------------------------------------------------------------------------------- //
-  umap_sparse_segment_storage()
-      : m_umap_page_size(0),
+  privateer_segment_storage()
+      : m_system_page_size(0),
         m_vm_region_size(0),
         m_segment_size(0),
         m_segment(nullptr),
         m_base_path(),
         m_read_only(),
         m_free_file_space(true) {
-    if (!priv_load_umap_page_size()) {
-      std::abort();
-    }
+
+    priv_load_system_page_size();
   }
 
-  ~umap_sparse_segment_storage() {
+  ~privateer_segment_storage() {
+    std::cout <<"Debug_karim: Destroying" << std::endl;
     priv_sync_segment(true);
+    std::cout << "Debug_karim: After sync" << std::endl;
     destroy();
+    std::cout << "Debug_karim: After destroy" << std::endl;
   }
 
-  umap_sparse_segment_storage(const umap_sparse_segment_storage &) = delete;
-  umap_sparse_segment_storage &operator=(const umap_sparse_segment_storage &) = delete;
+  privateer_segment_storage(const privateer_segment_storage &) = delete;
+  privateer_segment_storage &operator=(const privateer_segment_storage &) = delete;
 
-  umap_sparse_segment_storage(umap_sparse_segment_storage &&other) noexcept:
-      m_umap_page_size(other.m_umap_page_size),
+  privateer_segment_storage(privateer_segment_storage &&other) noexcept:
+      m_system_page_size(other.m_system_page_size),
       m_vm_region_size(other.m_vm_region_size),
       m_segment_size(other.m_segment_size),
       m_segment(other.m_segment),
@@ -74,8 +75,8 @@ class umap_sparse_segment_storage {
     other.priv_reset();
   }
 
-  umap_sparse_segment_storage &operator=(umap_sparse_segment_storage &&other) noexcept {
-    m_umap_page_size = other.m_umap_page_size;
+  privateer_segment_storage &operator=(privateer_segment_storage &&other) noexcept {
+    m_system_page_size = other.m_system_page_size;
     m_vm_region_size = other.m_vm_region_size;
     m_segment_size = other.m_segment_size;
     m_segment = other.m_segment;
@@ -100,7 +101,8 @@ class umap_sparse_segment_storage {
   /// This is a static version of size() method.
   static size_type get_size(const std::string &base_path) {
     const auto directory_name = priv_make_file_name(base_path);
-    return Umap::SparseStore::get_capacity(directory_name);
+    std::string version_path = directory_name + "/version_metadata";
+    return Privateer::version_size(version_path); // TODO: Implement Static get_size in Privateer
   }
 
   /// \brief Copies segment to another location.
@@ -123,7 +125,7 @@ class umap_sparse_segment_storage {
     return false;
   }
 
-  /// \brief Creates a new segment by mapping file(s) to the given VM address.
+  /// \brief {Creates a new segment by mapping file(s) to the given VM address.
   /// \param base_path A path to create a datastore.
   /// \param vm_region_size The size of the VM region.
   /// \param vm_region The address of the VM region.
@@ -181,10 +183,9 @@ class umap_sparse_segment_storage {
     if (!mdtl::file_exist(file_name)) {
       std::cerr << "Segment file does not exist" << std::endl;
       return false;
-    } 
-    
-    // store = new Umap::SparseStore(file_name,read_only);
-    m_segment_size = get_size(base_path);// store->get_current_capacity(); 
+    }
+
+    m_segment_size = get_size(base_path); 
     assert(m_segment_size % page_size() == 0);
     if (!priv_map_file_open(file_name, m_segment_size, static_cast<char *>(m_segment), read_only)) { // , store)) {
       std::abort(); // Fatal error
@@ -216,7 +217,9 @@ class umap_sparse_segment_storage {
       return false;
     }
 
-    return true;
+    bool privateer_extend_status = privateer->extend(new_segment_size);
+
+    return privateer_extend_status;
   }
 
   /// \brief Destroy (unmap) the segment.
@@ -249,10 +252,8 @@ class umap_sparse_segment_storage {
     return m_segment_size;
   }
 
-  /// \brief Returns the Umap page size.
-  /// \return The current Umap page size.
   size_type page_size() const {
-    return m_umap_page_size;
+    return m_system_page_size;
   }
 
   /// \brief Returns whether the segment is read only or not.
@@ -270,11 +271,11 @@ class umap_sparse_segment_storage {
   // Private methods (not designed to be used by the base class)
   // -------------------------------------------------------------------------------- //
   static std::string priv_make_file_name(const std::string &base_path) {
-    return base_path + "_umap_sparse_segment_file";
+    return base_path + "_privateer_datastore";
   }
 
   void priv_reset() {
-    m_umap_page_size = 0;
+    m_system_page_size = 0;
     m_vm_region_size = 0;
     m_segment_size = 0;
     m_segment = nullptr;
@@ -282,7 +283,7 @@ class umap_sparse_segment_storage {
   }
 
   bool priv_inited() const {
-    return (m_umap_page_size > 0 && m_vm_region_size > 0 && m_segment_size > 0 && m_segment
+    return (m_system_page_size > 0 && m_vm_region_size > 0 && m_segment_size > 0 && m_segment
         && !m_base_path.empty());
   }
 
@@ -298,39 +299,23 @@ class umap_sparse_segment_storage {
     return true;
   }
 
-  size_t priv_get_sparsestore_file_granularity() const {
-    char* file_granularity_str = getenv("SPARSE_STORE_FILE_GRANULARITY");
-    size_t file_granularity;
-    if (file_granularity_str == NULL){
-      file_granularity = SPARSE_STORE_FILE_GRANULARITY_DEFAULT;
-    }
-    else{
-      file_granularity = (size_t) std::stol(file_granularity_str);
-    }
-    return file_granularity; 
-  }
-
   bool priv_map_file_create(const std::string &path, const size_type file_size, void *const addr) const {
     assert(!path.empty());
     assert(file_size > 0);
     assert(addr);
 
     std::string blocks_path = path + "/blocks";
-    std::string versions_path = path + "/versions";
+    std::string version_path = path + "/version_metadata";
     // create versions directory
-    if (!mdtl::create_directory(versions_path)) {
-      std::string s("Failed to create directory: " + base_dir_path);
+    if (!mdtl::create_directory(path)) {
+      std::string s("Failed to create directory: " + version_path);
       logger::out(logger::level::critical, __FILE__, __LINE__, s.c_str());
       return false;
     }
 
-    // make version directory name
-    const auto timestamp = std::chrono::system_clock::now();
-    std::string version_directory_name = path + "/versions/version_" + timestamp; 
 
     // init Privateer object and get data
-    Privateer priv(addr, blocks_path, version_directory_name, file_size);
-    addr = priv.data();
+    privateer = new Privateer(addr, blocks_path.c_str(), version_path.c_str(), file_size);
 
     return true;
   }
@@ -341,26 +326,11 @@ class umap_sparse_segment_storage {
 
     // MEMO: one of the following options does not work on /tmp?
 
-    size_t page_size = umapcfg_get_umap_page_size();
-    if (page_size == -1) {
-      ::perror("umapcfg_get_umap_page_size failed");
-      std::cerr << "errno: " << errno << std::endl;
-    }
-    
-    
-    store = new Umap::SparseStore(path,read_only);
-    uint64_t region_size = file_size;
-
-    const int prot = PROT_READ | (read_only ? 0 : PROT_WRITE);
-    const int flags = UMAP_PRIVATE | MAP_FIXED;
-    void *const region = Umap::umap_ex(addr, region_size, prot, flags, -1, 0,store);
-    if (region == UMAP_FAILED) {
-      std::ostringstream ss;
-      ss << "umap_mf of " << region_size << " bytes failed for " << path;
-      perror(ss.str().c_str());
-      return false;
-    }
- 
+    std::string version_path = path + "/version_metadata";
+    std::cout << "Metall: priv_map_file_open() addr = " << (uint64_t) addr << std::endl;
+    privateer = new Privateer(addr, version_path.c_str(), read_only);
+    m_segment_size = privateer->current_size();
+    std::cout << "Metall: Segment size = " << m_segment_size  << std::endl;
     return true;
   }
 
@@ -369,20 +339,8 @@ class umap_sparse_segment_storage {
 
     const auto file_name = priv_make_file_name(m_base_path);
     assert(mdtl::file_exist(file_name));
-
-    if (::uunmap(static_cast<char *>(m_segment), m_segment_size) != 0) {
-      std::cerr << "Failed to unmap a Umap region" << std::endl;
-      std::abort();
-    }
-
     m_segment_size = 0;
-    int sparse_store_close_files = store->close_files();
-    if (sparse_store_close_files != 0 ){
-      std::cerr << "Error closing SparseStore files" << std::endl;
-      delete store;
-      std::abort();
-    }
-    delete store;
+    delete privateer;
   }
 
   void priv_destroy_segment() {
@@ -396,12 +354,10 @@ class umap_sparse_segment_storage {
   void priv_sync_segment([[maybe_unused]] const bool sync) {
     if (!priv_inited() || m_read_only) return;
 
-    if (::umap_flush() != 0) {
-      std::cerr << "Failed umap_flush()" << std::endl;
-    }
+    privateer->msync();
   }
 
-  // MEMO: Umap cannot free file region
+  // MEMO: Privateer cannot free file region
   bool priv_free_region(const different_type offset, const size_type nbytes) {
     if (!priv_inited() || m_read_only) return false;
 
@@ -410,10 +366,10 @@ class umap_sparse_segment_storage {
     return true;
   }
 
-  bool priv_load_umap_page_size() {
-    m_umap_page_size = ::umapcfg_get_umap_page_size();
-    if (m_umap_page_size == -1) {
-      std::cerr << "Failed to get system pagesize" << std::endl;
+  bool priv_load_system_page_size() {
+    m_system_page_size = mdtl::get_page_size();
+    if (m_system_page_size == -1) {
+      logger::out(logger::level::critical, __FILE__, __LINE__, "Failed to get system pagesize");
       return false;
     }
     return true;
@@ -426,17 +382,17 @@ class umap_sparse_segment_storage {
   // -------------------------------------------------------------------------------- //
   // Private fields
   // -------------------------------------------------------------------------------- //
-  ssize_t m_umap_page_size{0};
+  ssize_t m_system_page_size{0};
   size_type m_vm_region_size{0};
   size_type m_segment_size{0};
   void *m_segment{nullptr};
   std::string m_base_path;
   bool m_read_only;
   bool m_free_file_space{true};
-  mutable Umap::SparseStore* store;
+  mutable Privateer* privateer;
 };
 
 } // namespace kernel
 } // namespace metall
 
-#endif //METALL_DETAILL_SEGMENT_STORAGE_UMAP_SPARSE_SEGMENT_STORAGE_HPP
+#endif //METALL_DETAILL_SEGMENT_STORAGE_PRIVATEER_SEGMENT_STORAGE_HPP
