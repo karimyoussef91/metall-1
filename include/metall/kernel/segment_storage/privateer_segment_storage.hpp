@@ -54,11 +54,8 @@ class privateer_segment_storage {
   }
 
   ~privateer_segment_storage() {
-    std::cout <<"Debug_karim: Destroying" << std::endl;
     priv_sync_segment(true);
-    std::cout << "Debug_karim: After sync" << std::endl;
     destroy();
-    std::cout << "Debug_karim: After destroy" << std::endl;
   }
 
   privateer_segment_storage(const privateer_segment_storage &) = delete;
@@ -94,36 +91,53 @@ class privateer_segment_storage {
   // -------------------------------------------------------------------------------- //
   /// \brief Check if there is a file that can be opened
   static bool openable(const std::string &base_path) {
-    return mdtl::file_exist(priv_make_file_name(base_path));
+    // return mdtl::file_exist(priv_make_file_name(base_path));
+    return mdtl::file_exist(base_path);
   }
 
   /// \brief Gets the size of an existing segment.
   /// This is a static version of size() method.
   static size_type get_size(const std::string &base_path) {
-    const auto directory_name = priv_make_file_name(base_path);
+    // const auto directory_name = priv_make_file_name(base_path);
+    const auto directory_name = base_path;
     std::string version_path = directory_name + "/version_metadata";
     return Privateer::version_size(version_path); // TODO: Implement Static get_size in Privateer
   }
 
   /// \brief Copies segment to another location.
+  /// \param source_path A path to a source segment.
+  /// \param destination_path A destination path.
+  /// \param clone If true, uses clone (reflink) for copying files.
+  /// \param max_num_threads The maximum number of threads to use.
+  /// If <= 0 is given, the value is automatically determined.
+  /// \return Return true if success; otherwise, false.
   static bool copy(const std::string &source_path,
                    const std::string &destination_path,
                    const bool clone,
-                   [[maybe_unused]] const int max_num_threads) {
-    // TODO: implement parallel copy version
+                   const int max_num_threads) {
+    std::string destination_privateer_metadata_path = destination_path + "/version_metadata";
+    if (!mdtl::directory_exist(destination_privateer_metadata_path)) {
+      if (!mdtl::create_directory(destination_privateer_metadata_path)) {
+        std::string s("Cannot create a directory: " + destination_privateer_metadata_path);
+        logger::out(logger::level::critical, __FILE__, __LINE__, s.c_str());
+      }
+    }
+
+    std::string source_privateer_metadata_path = source_path + "/version_metadata";
 
     if (clone) {
       std::string s("Clone: " + source_path);
       logger::out(logger::level::info, __FILE__, __LINE__, s.c_str());
-      return mdtl::clone_file(source_path, destination_path);
+      return mdtl::clone_files_in_directory_in_parallel(source_privateer_metadata_path, destination_privateer_metadata_path, max_num_threads);
     } else {
       std::string s("Copy: " + source_path);
       logger::out(logger::level::info, __FILE__, __LINE__, s.c_str());
-      return mdtl::copy_file(source_path, destination_path);
+      return mdtl::copy_files_in_directory_in_parallel(source_privateer_metadata_path, destination_privateer_metadata_path, max_num_threads);
     }
     assert(false);
     return false;
   }
+
 
   /// \brief {Creates a new segment by mapping file(s) to the given VM address.
   /// \param base_path A path to create a datastore.
@@ -173,19 +187,19 @@ class privateer_segment_storage {
       std::cerr << "Invalid argument to open segment" << std::endl;
       std::abort(); // Fatal error
     }
-
+    std::cout << "Metall: open() vm_region_size = " << vm_region_size << std::endl;
     m_base_path = base_path;
     m_vm_region_size = vm_region_size;
     m_segment = vm_region;
     m_read_only = read_only;
 
-    const auto file_name = priv_make_file_name(m_base_path);
+    const auto file_name = m_base_path;// priv_make_file_name(m_base_path);
     if (!mdtl::file_exist(file_name)) {
       std::cerr << "Segment file does not exist" << std::endl;
       return false;
     }
 
-    m_segment_size = get_size(base_path); 
+    m_segment_size = vm_region_size; // get_size(base_path);
     assert(m_segment_size % page_size() == 0);
     if (!priv_map_file_open(file_name, m_segment_size, static_cast<char *>(m_segment), read_only)) { // , store)) {
       std::abort(); // Fatal error
@@ -292,7 +306,7 @@ class privateer_segment_storage {
                                 void *const addr) const {
     assert(!m_segment || static_cast<char *>(m_segment) + m_segment_size <= addr);
 
-    const std::string file_name = priv_make_file_name(base_path);
+    const std::string file_name = base_path;// priv_make_file_name(base_path);
     if (!priv_map_file_create(file_name, file_size, addr)) {
       return false;
     }
@@ -313,10 +327,10 @@ class privateer_segment_storage {
       return false;
     }
 
-
+     std::cout << "Before creating Privateer object" << std::endl;
     // init Privateer object and get data
     privateer = new Privateer(addr, blocks_path.c_str(), version_path.c_str(), file_size);
-
+    std::cout << "After creating Privateer object" << std::endl;
     return true;
   }
 
@@ -327,17 +341,15 @@ class privateer_segment_storage {
     // MEMO: one of the following options does not work on /tmp?
 
     std::string version_path = path + "/version_metadata";
-    std::cout << "Metall: priv_map_file_open() addr = " << (uint64_t) addr << std::endl;
     privateer = new Privateer(addr, version_path.c_str(), read_only);
-    m_segment_size = privateer->current_size();
-    std::cout << "Metall: Segment size = " << m_segment_size  << std::endl;
+    // m_segment_size = privateer->current_size();
     return true;
   }
 
 
   void priv_unmap_file() {
 
-    const auto file_name = priv_make_file_name(m_base_path);
+    const auto file_name = m_base_path;// priv_make_file_name(m_base_path);
     assert(mdtl::file_exist(file_name));
     m_segment_size = 0;
     delete privateer;
