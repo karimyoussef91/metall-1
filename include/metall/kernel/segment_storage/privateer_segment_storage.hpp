@@ -225,8 +225,12 @@ class privateer_segment_storage {
     }
 
     bool privateer_extend_status = privateer->resize(request_size);
+    if (privateer_extend_status){
+      m_current_segment_size = privateer->current_size();
+      return true;
+    }
 
-    return privateer_extend_status;
+    return false;
   }
 
   /// \brief Destroy (unmap) the segment.
