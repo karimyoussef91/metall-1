@@ -44,7 +44,7 @@ class privateer_segment_storage {
   privateer_segment_storage()
       : m_system_page_size(0),
         m_vm_region_size(0),
-        m_segment_size(0),
+        m_current_segment_size(0),
         m_segment(nullptr),
         m_base_path(),
         m_read_only(),
@@ -64,7 +64,7 @@ class privateer_segment_storage {
   privateer_segment_storage(privateer_segment_storage &&other) noexcept:
       m_system_page_size(other.m_system_page_size),
       m_vm_region_size(other.m_vm_region_size),
-      m_segment_size(other.m_segment_size),
+      m_current_segment_size(other.m_current_segment_size),
       m_segment(other.m_segment),
       m_base_path(other.m_base_path),
       m_read_only(other.m_read_only),
@@ -75,7 +75,7 @@ class privateer_segment_storage {
   privateer_segment_storage &operator=(privateer_segment_storage &&other) noexcept {
     m_system_page_size = other.m_system_page_size;
     m_vm_region_size = other.m_vm_region_size;
-    m_segment_size = other.m_segment_size;
+    m_current_segment_size = other.m_current_segment_size;
     m_segment = other.m_segment;
     m_base_path = other.m_base_path;
     m_read_only = other.m_read_only;
@@ -167,7 +167,6 @@ class privateer_segment_storage {
       priv_reset();
       return false;
     }
-    m_segment_size += segment_size;
 
     priv_test_file_space_free(base_path);
 
@@ -187,7 +186,6 @@ class privateer_segment_storage {
       std::cerr << "Invalid argument to open segment" << std::endl;
       std::abort(); // Fatal error
     }
-    std::cout << "Metall: open() vm_region_size = " << vm_region_size << std::endl;
     m_base_path = base_path;
     m_vm_region_size = vm_region_size;
     m_segment = vm_region;
@@ -199,11 +197,10 @@ class privateer_segment_storage {
       return false;
     }
 
-    m_segment_size = vm_region_size; // get_size(base_path);
-    assert(m_segment_size % page_size() == 0);
-    if (!priv_map_file_open(file_name, m_segment_size, static_cast<char *>(m_segment), read_only)) { // , store)) {
+    if (!priv_map_file_open(file_name, static_cast<char *>(m_segment), read_only)) { // , store)) {
       std::abort(); // Fatal error
     }
+
 
     if (!read_only) {
       priv_test_file_space_free(base_path);
@@ -215,23 +212,19 @@ class privateer_segment_storage {
   /// \brief This function does nothing in this implementation.
   /// \param new_segment_size Not used.
   /// \return Always returns true.
-  bool extend(const size_type new_segment_size) {
+  bool extend(const size_type request_size) {
     assert(priv_inited());
 
     if (m_read_only) {
       return false;
     }
 
-    if (new_segment_size > m_vm_region_size) {
+    if (request_size > m_vm_region_size) {
       std::cerr << "Requested segment size is bigger than the reserved VM size" << std::endl;
       return false;
     }
-    if (new_segment_size > m_segment_size) {
-      std::cerr << "Requested segment size is too big" << std::endl;
-      return false;
-    }
 
-    bool privateer_extend_status = privateer->extend(new_segment_size);
+    bool privateer_extend_status = privateer->resize(request_size);
 
     return privateer_extend_status;
   }
@@ -263,7 +256,7 @@ class privateer_segment_storage {
   /// \brief Returns the size of the segment.
   /// \return The size of the segment.
   size_type size() const {
-    return m_segment_size;
+    return m_current_segment_size;
   }
 
   size_type page_size() const {
@@ -291,20 +284,20 @@ class privateer_segment_storage {
   void priv_reset() {
     m_system_page_size = 0;
     m_vm_region_size = 0;
-    m_segment_size = 0;
+    m_current_segment_size = 0;
     m_segment = nullptr;
     // m_read_only = false;
   }
 
   bool priv_inited() const {
-    return (m_system_page_size > 0 && m_vm_region_size > 0 && m_segment_size > 0 && m_segment
+    return (m_system_page_size > 0 && m_vm_region_size > 0 && m_current_segment_size > 0 && m_segment
         && !m_base_path.empty());
   }
 
   bool priv_create_and_map_file(const std::string &base_path,
                                 const size_type file_size,
-                                void *const addr) const {
-    assert(!m_segment || static_cast<char *>(m_segment) + m_segment_size <= addr);
+                                void *const addr) {
+    assert(!m_segment || static_cast<char *>(m_segment) + m_current_segment_size <= addr);
 
     const std::string file_name = base_path;// priv_make_file_name(base_path);
     if (!priv_map_file_create(file_name, file_size, addr)) {
@@ -313,7 +306,7 @@ class privateer_segment_storage {
     return true;
   }
 
-  bool priv_map_file_create(const std::string &path, const size_type file_size, void *const addr) const {
+  bool priv_map_file_create(const std::string &path, const size_type file_size, void *const addr) {
     assert(!path.empty());
     assert(file_size > 0);
     assert(addr);
@@ -327,14 +320,13 @@ class privateer_segment_storage {
       return false;
     }
 
-     std::cout << "Before creating Privateer object" << std::endl;
     // init Privateer object and get data
     privateer = new Privateer(addr, blocks_path.c_str(), version_path.c_str(), file_size);
-    std::cout << "After creating Privateer object" << std::endl;
+    m_current_segment_size = privateer->current_size();
     return true;
   }
 
-  bool priv_map_file_open(const std::string &path, const size_type file_size, void *const addr, const bool read_only){
+  bool priv_map_file_open(const std::string &path, void *const addr, const bool read_only){
     assert(!path.empty());
     assert(addr);
 
@@ -342,7 +334,7 @@ class privateer_segment_storage {
 
     std::string version_path = path + "/version_metadata";
     privateer = new Privateer(addr, version_path.c_str(), read_only);
-    // m_segment_size = privateer->current_size();
+    m_current_segment_size = privateer->current_size();
     return true;
   }
 
@@ -351,7 +343,7 @@ class privateer_segment_storage {
 
     const auto file_name = m_base_path;// priv_make_file_name(m_base_path);
     assert(mdtl::file_exist(file_name));
-    m_segment_size = 0;
+    m_current_segment_size = 0;
     delete privateer;
   }
 
@@ -373,7 +365,7 @@ class privateer_segment_storage {
   bool priv_free_region(const different_type offset, const size_type nbytes) {
     if (!priv_inited() || m_read_only) return false;
 
-    if (offset + nbytes > m_segment_size) return false;
+    if (offset + nbytes > m_current_segment_size) return false;
 
     return true;
   }
@@ -396,7 +388,7 @@ class privateer_segment_storage {
   // -------------------------------------------------------------------------------- //
   ssize_t m_system_page_size{0};
   size_type m_vm_region_size{0};
-  size_type m_segment_size{0};
+  size_type m_current_segment_size{0};
   void *m_segment{nullptr};
   std::string m_base_path;
   bool m_read_only;
