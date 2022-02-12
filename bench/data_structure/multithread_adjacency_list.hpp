@@ -22,6 +22,7 @@ namespace container = std;
 #include <metall/container/vector.hpp>
 #include <metall/container/unordered_map.hpp>
 #include <metall/container/scoped_allocator.hpp>
+#include <metall/container/list.hpp>
 namespace container = metall::container;
 #endif
 

@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
   // Snapshot
   {
     // Start: Get timestamp
-    time_t rawtime;
+    /* time_t rawtime;
     struct tm * timeinfo;
     char buffer[80];
 
@@ -67,9 +67,12 @@ int main(int argc, char *argv[]) {
     timeinfo = localtime(&rawtime);
 
     strftime(buffer,sizeof(buffer),"%d-%m-%Y_%H:%M:%S",timeinfo);
-    std::string str(buffer);
+    std::string str(buffer);*/
+    auto t0 = std::chrono::high_resolution_clock::now();        
+    auto nanosec = t0.time_since_epoch();
+    std::string str = std::to_string(nanosec.count());
     std::string snapshot_path = option.datastore_path_list[0] + "_" + str;
-    std::cerr << "snapshot_path = " << snapshot_path << snapshot_path;
+    // std::cerr << "snapshot_path = " << snapshot_path << snapshot_path;
     // End:   Get timestamp
 
     const auto start = metall::mtlldetail::elapsed_time_sec();

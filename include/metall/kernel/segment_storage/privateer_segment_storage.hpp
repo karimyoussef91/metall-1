@@ -54,8 +54,11 @@ class privateer_segment_storage {
   }
 
   ~privateer_segment_storage() {
+    std::cout << "Destructor call" << std::endl;
     priv_sync_segment(true);
+    std::cout << "Destructor call done sync" << std::endl;
     destroy();
+    std::cout << "Destructor call done destroy" << std::endl;
   }
 
   privateer_segment_storage(const privateer_segment_storage &) = delete;
@@ -343,20 +346,33 @@ class privateer_segment_storage {
   }
 
 
-  void priv_unmap_file() {
+  /* void priv_unmap_file() {
 
     const auto file_name = m_base_path;// priv_make_file_name(m_base_path);
     assert(mdtl::file_exist(file_name));
     m_current_segment_size = 0;
-    delete privateer;
-  }
+    std::cout << "done checking and zeroing" << std::endl;
+    if (privateer != nullptr){
+      delete privateer;
+      std::cout << "done deleting privateer object" << std::endl;
+      privateer = nullptr;
+    }
+    std::cout << "done segment unmapping" << std::endl;
+  } */
 
   void priv_destroy_segment() {
     if (!priv_inited()) return;
-
-    priv_unmap_file();
-
+    // priv_unmap_file();
+    if (privateer != nullptr){
+      delete privateer;
+      std::cout << "done deleting privateer object" << std::endl;
+      privateer = nullptr;
+    }
+    std::cout << "destroy done delete privateer" << std::endl;
     priv_reset();
+    std::cout << "destroy done reset" << std::endl;
+
+    // std::cout << "Metall: Destroying segment" << std::endl;
   }
 
   void priv_sync_segment([[maybe_unused]] const bool sync) {

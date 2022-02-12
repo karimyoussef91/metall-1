@@ -189,6 +189,15 @@ if (USE_ANONYMOUS_NEW_MAP)
     message(STATUS "Use the anonymous map for new map region")
 endif()
 
+# Temporary test
+FIND_PACKAGE( OpenMP REQUIRED )
+    if(OPENMP_FOUND)
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+      set(CMAKE_EXE_LINKER_FLAGS
+      "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+    endif()
+
 if (PRIVATEER_INCLUDE_PATH)
     if (PRIVATEER_INCLUDE_PATH AND UMAP_ROOT)
         message(FATAL_ERROR "PRIVATEER_INCLUDE_PATH and UMAP_ROOT cannot coexist")
@@ -207,6 +216,9 @@ if (PRIVATEER_INCLUDE_PATH)
 
       add_definitions(-DMETALL_USE_PRIVATEER)
       add_definitions(-DUSE_PAGEMAP)
+      if (PRIVATEER_USE_CAS)
+          add_definitions(-DUSE_CAS)
+      endif()
       include_directories(${PRIVATEER_INCLUDE_PATH})
       message(STATUS "Using Privateer for memory mapping")
     else()
