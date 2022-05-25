@@ -1,11 +1,17 @@
 cmake_minimum_required(VERSION 3.10)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(FetchContent)
+
+# -------------------------------------------------------------------------------- #
+# CMake policy
+# -------------------------------------------------------------------------------- #
+cmake_policy(SET CMP0077 NEW)
 
 # -------------------------------------------------------------------------------- #
 # Metall general configuration
 # -------------------------------------------------------------------------------- #
 project(Metall
-        VERSION 0.17
+        VERSION 0.19
         DESCRIPTION "A persistent memory allocator for data-centric analytics"
         HOMEPAGE_URL "https://github.com/LLNL/metall")
 
@@ -66,7 +72,7 @@ install(FILES
 # ----------
 # User configurable options
 # -------------------------------------------------------------------------------- #
-option(JUST_INSTALL_HEADER "Just install Metall header files (do not build anything)" OFF)
+option(JUST_INSTALL_METALL_HEADER "Just install Metall header files (do not build anything)" OFF)
 option(BUILD_UTILITY "Build utility programs" OFF)
 option(BUILD_DOC "Build API documentation" OFF)
 option(BUILD_C "Build C examples and libraries" OFF)
@@ -92,6 +98,7 @@ set(INITIAL_SEGMENT_SIZE "0" CACHE STRING
 # ---------- Experimental options ---------- #
 option(USE_ANONYMOUS_NEW_MAP "Use the anonymous map when creating a new map region" OFF)
 set(UMAP_ROOT "" CACHE PATH "UMap installed root directory")
+set(PRIVATEER_ROOT "" CACHE PATH "Privateer installed root directory")
 
 option(ONLY_DOWNLOAD_GTEST "Only downloading Google Test" OFF)
 option(SKIP_DOWNLOAD_GTEST "Skip downloading Google Test" OFF)
@@ -114,10 +121,10 @@ endif ()
 # Exit before building anything
 # -------------------------------------------------------------------------------- #
 if (INSTALL_HEADER_ONLY)
-    message(WARNING "INSTALL_HEADER_ONLY option has been replaced with JUST_INSTALL_HEADER.")
+    message(WARNING "INSTALL_HEADER_ONLY option has been replaced with JUST_INSTALL_METALL_HEADER.")
 endif()
 
-if (JUST_INSTALL_HEADER)
+if (JUST_INSTALL_METALL_HEADER)
     return()
 endif()
 # -------------------------------------------------------------------------------- #
@@ -200,6 +207,9 @@ if (USE_ANONYMOUS_NEW_MAP)
     if (USE_ANONYMOUS_NEW_MAP AND UMAP_ROOT)
         message(FATAL_ERROR "USE_ANONYMOUS_NEW_MAP and UMAP_ROOT options cannot coexist")
     endif ()
+    if (USE_ANONYMOUS_NEW_MAP AND PRIVATEER_ROOT)
+        message(FATAL_ERROR "USE_ANONYMOUS_NEW_MAP and PRIVATEER_ROOT options cannot coexist")
+    endif ()    
 
     list(APPEND METALL_DEFS "METALL_USE_ANONYMOUS_NEW_MAP")
     message(STATUS "Use the anonymous map for new map region")
@@ -231,23 +241,36 @@ include_cxx_filesystem_library()
 
 # ---------- UMap ---------- #
 if (UMAP_ROOT)
+    if (UMAP_ROOT AND PRIVATEER_ROOT)
+        message(FATAL_ERROR "UMAP_ROOT and PRIVATEER_ROOT options cannot coexist")
+    endif ()
     if (UNIX AND NOT APPLE)
         find_library(LIBUMAP NAMES umap PATHS ${UMAP_ROOT}/lib)
     endif ()
 endif ()
 
+# ---------- Privateer ---------- #
+message(STATUS "Privateer Root is: ${PRIVATEER_ROOT}")
+if (PRIVATEER_ROOT)
+    find_library(LIBPRIVATEER NAMES privateer PATHS ${PRIVATEER_ROOT}/lib)
+endif ()
 
 # ---------- Boost ---------- #
 # Disable the boost-cmake feature (BoostConfig.cmake or boost-config.cmake) since
 # there is a tricky behavior/issue especially in Boost 1.70.0.
 set(Boost_NO_BOOST_CMAKE ON)
 
-if (RUN_BUILD_AND_TEST_WITH_CI)
-    find_package(Boost)
-else ()
+find_package(Boost 1.64 QUIET) # COMPONENTS iostreams)
+if (NOT Boost_FOUND)
+    FetchContent_Declare(Boost
+            URL https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.tar.bz2)
+    FetchContent_GetProperties(Boost)
+    if (NOT Boost_POPULATED)
+        FetchContent_Populate(Boost)
+    endif ()
+    set(BOOST_ROOT ${boost_SOURCE_DIR})
     find_package(Boost 1.64)
 endif ()
-
 
 # -------------------------------------------------------------------------------- #
 # Add executable functions
@@ -316,6 +339,31 @@ function(common_setup_for_metall_executable name)
         if (LIBUMAP)
             target_link_libraries(${name} PRIVATE ${LIBUMAP})
             target_compile_definitions(${name} PRIVATE METALL_USE_UMAP)
+        endif ()
+    endif ()
+    # --------------------
+
+    # ----- Privateeer----- #
+    if (PRIVATEER_ROOT)
+        target_include_directories(${name} PRIVATE ${PRIVATEER_ROOT}/include)
+        if (LIBPRIVATEER)
+            # 1) Privateer Dependencies
+            FIND_PACKAGE(OpenSSL)
+            target_link_libraries(${name} PRIVATE OpenSSL::SSL)
+            target_link_libraries(${name} PRIVATE OpenSSL::Crypto)
+            target_link_libraries(${name} PRIVATE rt)
+            if (ZSTD_ROOT)
+                find_library(LIBZSTD NAMES zstd PATHS ${ZSTD_ROOT}/lib)
+                target_include_directories(${name} PRIVATE ${ZSTD_ROOT}/lib)
+                target_link_libraries(${name} PRIVATE ${LIBZSTD})
+                target_compile_definitions(${name} PRIVATE USE_COMPRESSION)
+            endif()
+            # ------------------------------------------
+            
+            # 2) Link Privateer
+            target_link_libraries(${name} PRIVATE ${LIBPRIVATEER})
+            target_compile_definitions(${name} PRIVATE METALL_USE_PRIVATEER)
+            # ------------------------------------------
         endif ()
     endif ()
     # --------------------
