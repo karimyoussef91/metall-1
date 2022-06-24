@@ -1,0 +1,44 @@
+name: CI Test
+
+on: [push, pull_request]
+
+jobs:
+  bst1-79-0:
+    runs-on: ubuntu-latest
+    env:
+      METALL_LIMIT_MAKE_PARALLELS: 8
+    steps:
+      - uses: actions/checkout@v2
+      - name: Test
+        run: |
+          pushd /dev/shm
+          wget -q https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.gz
+          mkdir boost
+          tar xf boost_1_79_0.tar.gz -C boost --strip-components 1
+          export BOOST_ROOT=${PWD}/boost
+          popd
+          export METALL_TEST_DIR=${GITHUB_JOB}
+          export CC=gcc-10
+          export CXX=g++-10
+          cd $GITHUB_WORKSPACE
+          bash ./scripts/CI/build_and_test.sh
+
+  bst1-64-0:
+    runs-on: ubuntu-latest
+    env:
+      METALL_LIMIT_MAKE_PARALLELS: 8
+    steps:
+      - uses: actions/checkout@v2
+      - name: Test
+        run: |
+          pushd /dev/shm
+          wget -q https://boostorg.jfrog.io/artifactory/main/release/1.64.0/source/boost_1_64_0.tar.gz
+          mkdir boost
+          tar xf boost_1_64_0.tar.gz -C boost --strip-components 1
+          export BOOST_ROOT=${PWD}/boost
+          popd
+          export METALL_TEST_DIR=${GITHUB_JOB}
+          export CC=gcc-10
+          export CXX=g++-10
+          cd $GITHUB_WORKSPACE
+          bash ./scripts/CI/build_and_test.sh

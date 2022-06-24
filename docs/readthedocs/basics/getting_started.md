@@ -18,6 +18,9 @@ All core files exist under
 - GCC 8.1 or more
     - 8.3 or more is recommended due to early implementation of the Filesystem library
 
+- Boost C++ Libraries 1.64 or more
+    - Build is not required; needs only the header files.
+    - To use JSON containers in Metall, Boost C++ Libraries 1.75 or more is required.
 
 ## Build Example
 
@@ -32,9 +35,9 @@ For example,
 ```bash
 # Download Boost (Boost C++ Libraries 1.64 or more is required)
 # One can skip this step if Boost is already available.
-wget https://dl.bintray.com/boostorg/release/1.75.0/source/boost_1_75_0.tar.gz
-tar xvf boost_1_75_0.tar.gz
-export BOOST_ROOT=$PWD/boost_1_75_0
+wget https://dl.bintray.com/boostorg/release/1.77.0/source/boost_1_77_0.tar.gz
+tar xvf boost_1_77_0.tar.gz
+export BOOST_ROOT=$PWD/boost_1_77_0
 
 git clone https://github.com/LLNL/metall
 export METALL_INCLUDE=$PWD/metall/include
@@ -80,8 +83,8 @@ clang++ -std=c++17 [tutorial_program.cpp] -I../../include -I${BOOST_ROOT}
 
 The C++17 <filesystem> library is not available on macOS < 10.15.
 One has to stop using C++17 <filesystem> library in Metall.
-If METALL_NOT_USE_CXX17_FILESYSTEM_LIB macro is defined, Metall uses its own file system operation implementation.
+If METALL_DISABLE_CXX17_FILESYSTEM_LIB macro is defined, Metall uses its own file system operation implementation.
 
 ```bash
-clang++ -std=c++17 [tutorial_program.cpp] -I../../include -I${BOOST_ROOT} -DMETALL_NOT_USE_CXX17_FILESYSTEM_LIB
+clang++ -std=c++17 [tutorial_program.cpp] -I../../include -I${BOOST_ROOT} -DMETALL_DISABLE_CXX17_FILESYSTEM_LIB
 ```

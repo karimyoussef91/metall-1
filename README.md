@@ -1,7 +1,8 @@
-[![metall-ci-test](https://github.com/LLNL/metall/actions/workflows/github-actions-test.yml/badge.svg)](https://github.com/LLNL/metall/actions/workflows/github-actions-test.yml)
+[![CI Test](https://github.com/LLNL/metall/actions/workflows/ci-test.yml/badge.svg?branch=master)](https://github.com/LLNL/metall/actions/workflows/ci-test.yml)
 [![Documentation Status](https://readthedocs.org/projects/metall/badge/?version=latest)](https://metall.readthedocs.io/en/latest/?badge=latest)
+[![Deploy API Doc](https://github.com/LLNL/metall/actions/workflows/deploy-api-doc.yml/badge.svg?branch=master)](https://github.com/LLNL/metall/actions/workflows/deploy-api-doc.yml)
 
-Metall: A Persistent Memory Allocator For Data-Centric Analytics
+Metall: A Persistent Memory Allocator for Data-Centric Analytics
 ===============================================
 
 * Provides rich memory allocation interfaces for C++ applications that
@@ -18,7 +19,7 @@ Metall: A Persistent Memory Allocator For Data-Centric Analytics
 * Also provides a space-efficient snapshot/versioning, leveraging reflink
   copy mechanism in filesystem. In case reflink is not supported, Metall
   automatically falls back to regular copy.
-* See details: [Metall overview slides](docs/publications/metall_overview.pdf).
+* See details: [Metall overview slides](docs/publications/metall_101.pdf).
   
 
 # Getting Started
@@ -31,23 +32,21 @@ All core files exist under
 ## Required
 
 - GCC 8.1 or more (8.3 or more is recommended due to early implementation of the Filesystem library).
+- Boost C++ Libraries 1.64 or more (build is not required; needs only their header files).
+  - To use JSON containers in Metall, Boost C++ Libraries 1.75 or more is required.
 
 ## Build
 
-Boost C++ Libraries 1.64 or more is required (build is not required; needs only
-their header files).
-
-To build your program with Metall, all you have to do is just setting
-include paths such as '-I' or CPLUS_INCLUDE_PATH.
+To build your program with Metall, all you have to do is just setting include paths such as '-I' or CPLUS_INCLUDE_PATH.
 
 For example,
 
 ```bash
 # Download Boost (Boost C++ Libraries 1.64 or more is required)
 # One can skip this step if Boost is already available.
-wget https://dl.bintray.com/boostorg/release/1.75.0/source/boost_1_75_0.tar.gz
-tar xvf boost_1_75_0.tar.gz
-export BOOST_ROOT=$PWD/boost_1_75_0
+wget https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.tar.gz
+tar xvf boost_1_78_0.tar.gz
+export BOOST_ROOT=$PWD/boost_1_78_0
 
 git clone https://github.com/LLNL/metall
 export METALL_INCLUDE=$PWD/metall/include
@@ -82,7 +81,12 @@ g++ -std=c++17 your_program.cpp -lstdc++fs -I${BOOST_ROOT}/include -I${METALL_RO
 ```
 
 
-# Build Examples
+## Use Metall from Another CMake Project
+
+To download and/or link Metall package from a CMake project,
+see example CMake files placed [here](./example/cmake).
+
+# Build Example Programs
 
 Metall repository contains some example programs under [example directory](./example).
 One can use CMake to build the examples.
@@ -90,12 +94,12 @@ For more details, see a page
 [here](https://metall.readthedocs.io/en/latest/advanced_build/example_test_bench/).
 
 
-# Documentation
+# Documentations
 
-[Full documentation](https://metall.readthedocs.io/) is available.
+- [Full documentation](https://metall.readthedocs.io/)
+- [API documentation](https://software.llnl.gov/metall/api/)
 
-
-## Generate API document using Doxygen
+## Generate API documentation using Doxygen
 
 A Doxygen configuration file is [here](docs/Doxyfile.in).
 
@@ -111,21 +115,23 @@ doxygen ../docs/Doxyfile.in
 
 # Publication
 
-## Metall: A Persistent Memory Allocator Enabling Graph Processing
+```
+Keita Iwabuchi, Karim Youssef, Kaushik Velusamy, Maya Gokhale, Roger Pearce,
+Metall: A persistent memory allocator for data-centric analytics,
+Parallel Computing, 2022, 102905, ISSN 0167-8191, https://doi.org/10.1016/j.parco.2022.102905.
+```
 
-[Paper PDF](https://www.osti.gov/servlets/purl/1576900)
+* [Parallel Computing](https://www.sciencedirect.com/science/article/abs/pii/S0167819122000114) (journal)
 
-[IEEE Xplore](https://ieeexplore.ieee.org/document/8945094)
-
+* [arXiv](https://arxiv.org/abs/2108.07223) (preprint)
 
 # About
 
-## Authors
+## Contact
 
-* Keita Iwabuchi (kiwabuchi at llnl dot gov)
-* Roger A Pearce (rpearce at llnl dot gov)
-* Maya B Gokhale (gokhale2 at llnl dot gov).
-
+- [GitHub Issues](https://github.com/LLNL/metall/issues) is open.
+  
+- Primary contact: [Keita Iwabuchi (LLNL)](https://github.com/KIwabuchi).
 
 ## License
 
