@@ -62,6 +62,13 @@ int main(int argc, char *argv[]) {
   std::cout << "Ingested " << num_chars_to_generate << " characters in "
             << ingest_end_time << " seconds." << std::endl;
 
+  const auto metall_sync_start_time = mdtl::elapsed_time_sec();
+  manager->flush();
+  const auto metall_sync_end_time =
+      mdtl::elapsed_time_sec(metall_sync_start_time);
+  std::cout << "Closed Metall manager in " << metall_sync_end_time
+            << " seconds." << std::endl;
+
   const auto metall_close_start_time = mdtl::elapsed_time_sec();
   manager.reset(nullptr);
   const auto metall_close_end_time =
