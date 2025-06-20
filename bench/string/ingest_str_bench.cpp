@@ -29,32 +29,35 @@ int main(int argc, char *argv[]) {
   std::unique_ptr<metall::manager> manager(
       new metall::manager(metall::create_only, path));
 
+  auto ingest_str = [&](const std::string &str) {
+    char *buf = reinterpret_cast<char *>(manager->allocate(str.size() + 1));
+    std::copy(str.begin(), str.end(), buf);
+    buf[str.size()] = '\0';
+  };
+
   const auto ingest_start_time = mdtl::elapsed_time_sec();
   OMP_DIRECTIVE(parallel) {
     const int num_threads = metall::utility::omp::get_num_threads();
 
     std::size_t n = num_chars_to_generate / num_threads;
     std::size_t cnt = 0;
+
     while (cnt < n) {
       const auto id = faker::string::uuidV4();
       const auto email = faker::internet::email();
       const auto city = faker::location::city();
       const auto streetAddress = faker::location::streetAddress();
 
-      manager->construct<metall::container::string>(metall::anonymous_instance)(
-          id, manager->get_allocator());
+      ingest_str(id);
       cnt += id.size();
 
-      manager->construct<metall::container::string>(metall::anonymous_instance)(
-          email, manager->get_allocator());
+      ingest_str(email);
       cnt += email.size();
 
-      manager->construct<metall::container::string>(metall::anonymous_instance)(
-          city, manager->get_allocator());
+      ingest_str(city);
       cnt += city.size();
 
-      manager->construct<metall::container::string>(metall::anonymous_instance)(
-          streetAddress, manager->get_allocator());
+      ingest_str(streetAddress);
       cnt += streetAddress.size();
     }
   }
@@ -66,8 +69,8 @@ int main(int argc, char *argv[]) {
   manager->flush();
   const auto metall_sync_end_time =
       mdtl::elapsed_time_sec(metall_sync_start_time);
-  std::cout << "Closed Metall manager in " << metall_sync_end_time
-            << " seconds." << std::endl;
+  std::cout << "Flush Metall manager in " << metall_sync_end_time << " seconds."
+            << std::endl;
 
   const auto metall_close_start_time = mdtl::elapsed_time_sec();
   manager.reset(nullptr);
