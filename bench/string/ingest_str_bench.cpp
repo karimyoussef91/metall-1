@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
   manager->flush();
   const auto metall_sync_end_time =
       mdtl::elapsed_time_sec(metall_sync_start_time);
-  std::cout << "Closed Metall manager in " << metall_sync_end_time
+  std::cout << "Flush Metall manager in " << metall_sync_end_time
             << " seconds." << std::endl;
 
   const auto metall_close_start_time = mdtl::elapsed_time_sec();
