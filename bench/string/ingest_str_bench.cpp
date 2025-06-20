@@ -14,6 +14,8 @@
 
 #include <faker-cxx/faker.h>
 
+namespace mdtl = metall::mtlldetail;
+
 int main(int argc, char *argv[]) {
   if (argc != 3) {
     std::cerr << "Usage: " << argv[0] << " <path> <num_chars_to_generate>"
@@ -24,8 +26,10 @@ int main(int argc, char *argv[]) {
   std::filesystem::path path = argv[1];
   std::size_t num_chars_to_generate = std::stoull(argv[2]);
 
-  metall::manager manager(metall::create_only, path);
+  std::unique_ptr<metall::manager> manager(
+      new metall::manager(metall::create_only, path));
 
+  const auto ingest_start_time = mdtl::elapsed_time_sec();
   OMP_DIRECTIVE(parallel) {
     const int num_threads = metall::utility::omp::get_num_threads();
 
@@ -37,20 +41,33 @@ int main(int argc, char *argv[]) {
       const auto city = faker::location::city();
       const auto streetAddress = faker::location::streetAddress();
 
-      manager.construct<metall::container::string>(metall::anonymous_instance)(id, manager.get_allocator());
+      manager->construct<metall::container::string>(metall::anonymous_instance)(
+          id, manager->get_allocator());
       cnt += id.size();
 
-      manager.construct<metall::container::string>(metall::anonymous_instance)(email, manager.get_allocator());
+      manager->construct<metall::container::string>(metall::anonymous_instance)(
+          email, manager->get_allocator());
       cnt += email.size();
 
-      manager.construct<metall::container::string>(metall::anonymous_instance)(city, manager.get_allocator());
+      manager->construct<metall::container::string>(metall::anonymous_instance)(
+          city, manager->get_allocator());
       cnt += city.size();
 
-      manager.construct<metall::container::string>(metall::anonymous_instance)(streetAddress, manager.get_allocator());
+      manager->construct<metall::container::string>(metall::anonymous_instance)(
+          streetAddress, manager->get_allocator());
       cnt += streetAddress.size();
     }
   }
-  std::cout << "Finished" << std::endl;
+  const auto ingest_end_time = mdtl::elapsed_time_sec(ingest_start_time);
+  std::cout << "Ingested " << num_chars_to_generate << " characters in "
+            << ingest_end_time << " seconds." << std::endl;
+
+  const auto metall_close_start_time = mdtl::elapsed_time_sec();
+  manager.reset(nullptr);
+  const auto metall_close_end_time =
+      mdtl::elapsed_time_sec(metall_close_start_time);
+  std::cout << "Closed Metall manager in " << metall_close_end_time
+            << " seconds." << std::endl;
 
   return EXIT_SUCCESS;
 }
