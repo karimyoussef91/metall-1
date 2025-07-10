@@ -117,7 +117,8 @@ set(BOOST_INCLUDE_ROOT "" CACHE STRING "Path to Boost include directory. Specifi
 
 # ---------- Experimental options ---------- #
 set(UMAP_ROOT "" CACHE PATH "UMap installed root directory")
-set(PRIVATEER_ROOT "" CACHE PATH "Privateer installed root directory")
+option(USE_PRIVATEER "Use Privateer memory and storage manager" OFF)
+option(PRIVATEER_COMPRESSION "Use Privateer with compression" OFF)
 
 option(ONLY_DOWNLOAD_GTEST "Only downloading Google Test" OFF)
 option(SKIP_DOWNLOAD_GTEST "Skip downloading Google Test" OFF)
@@ -203,12 +204,6 @@ if (UMAP_ROOT)
     if (UNIX AND NOT APPLE)
         find_library(LIBUMAP NAMES umap PATHS ${UMAP_ROOT}/lib)
     endif ()
-endif ()
-
-# ---------- Privateer ---------- #
-if (PRIVATEER_ROOT)
-    message(STATUS "Privateer Root is ${PRIVATEER_ROOT}")
-    find_library(LIBPRIVATEER NAMES privateer PATHS ${PRIVATEER_ROOT}/lib)
 endif ()
 
 # ---------- Boost ---------- #
@@ -306,33 +301,76 @@ function(common_setup_for_metall_executable name)
     # --------------------
 
     # ----- Privateer----- #
-    if (PRIVATEER_ROOT)
-        target_include_directories(${name} PRIVATE ${PRIVATEER_ROOT}/include)
-        if (LIBPRIVATEER)
-            # 1) Privateer Dependencies
-            FIND_PACKAGE(OpenSSL)
-            if (OpenSSL_FOUND)
-                target_link_libraries(${name} PRIVATE OpenSSL::SSL)
-                target_link_libraries(${name} PRIVATE OpenSSL::Crypto)
-            endif ()
-            target_link_libraries(${name} PRIVATE rt)
-            FIND_PACKAGE(OpenMP REQUIRED)
-            if (OpenMP_CXX_FOUND)
-                target_link_libraries(${name} PRIVATE OpenMP::OpenMP_CXX)
-            else ()
-                message(FATAL_ERROR "OpenMP is required to build Metall with Privateer")
-            endif ()
-            if (ZSTD_ROOT)
-                find_library(LIBZSTD NAMES zstd PATHS ${ZSTD_ROOT}/lib)
-                target_include_directories(${name} PRIVATE ${ZSTD_ROOT}/lib)
-                target_link_libraries(${name} PRIVATE ${LIBZSTD})
-                target_compile_definitions(${name} PRIVATE USE_COMPRESSION)
-            endif ()
+    if (USE_PRIVATEER)
+        
 
-            # 2) Link Privateer
-            target_link_libraries(${name} PRIVATE ${LIBPRIVATEER})
-            target_compile_definitions(${name} PRIVATE METALL_USE_PRIVATEER)
+        #
+        # spdlog
+        #
+        set(SPDLOG_BUILD_SHARED ON CACHE BOOL "" FORCE)
+        FetchContent_Declare(
+        spdlog
+        GIT_REPOSITORY https://github.com/gabime/spdlog.git
+        GIT_TAG v1.14.1)
+        FetchContent_MakeAvailable(spdlog)
+
+        #
+        # Privateer
+        #
+        set(ENABLE_PRIVATEER_TEST OFF CACHE BOOL "" FORCE)
+        set(ENABLE_PAGE_EVICTION ON CACHE BOOL "" FORCE)
+        
+        FetchContent_Declare(Privateer
+                GIT_REPOSITORY https://github.com/LLNL/Privateer.git
+                GIT_TAG v0.1-dev
+                )
+        FetchContent_MakeAvailable(Privateer)
+
+        target_include_directories(${name} PRIVATE ${Privateer_SOURCE_DIR}/include)
+        target_link_directories(${name} PRIVATE ${Privateer_BINARY_DIR}/lib)
+        
+        # 1) Privateer Dependencies
+        find_package(OpenSSL)
+        if (OpenSSL_FOUND)
+            target_link_libraries(${name} PRIVATE OpenSSL::SSL)
+            target_link_libraries(${name} PRIVATE OpenSSL::Crypto)
         endif ()
+        target_link_libraries(${name} PRIVATE rt)
+        find_package(OpenMP REQUIRED)
+        if (OpenMP_CXX_FOUND)
+            target_link_libraries(${name} PRIVATE OpenMP::OpenMP_CXX)
+        else ()
+            message(FATAL_ERROR "OpenMP is required to build Metall with Privateer")
+        endif ()
+        if (PRIVATEER_COMPRESSION)
+            #
+            #  ZSTD
+            #
+            set(PRIVATEER_BUILD_TEST OFF CACHE BOOL "Build Privateer tests")
+            find_package(zstd QUIET) ## TODO: only use FetchContent
+            if (NOT zstd_FOUND) ## TODO: only use FetchContent
+                FetchContent_Declare(zstd
+                        GIT_REPOSITORY https://github.com/facebook/zstd.git
+                        GIT_TAG v1.5.4
+                        )
+                FetchContent_MakeAvailable(zstd)
+                list(APPEND CMAKE_MODULE_PATH "${zstd_SOURCE_DIR}/build/cmake")
+            endif () ## TODO: only use FetchContent
+            # TODO: https://github.com/facebook/zstd/blob/dev/build/cmake/README.md
+            find_library(LIBZSTD NAMES zstd PATHS ${zstd_ROOT}/lib)
+            target_include_directories(${name} PRIVATE ${zstd_ROOT}/lib)
+            target_link_libraries(${name} PRIVATE ${LIBZSTD})
+            target_compile_definitions(${name} PRIVATE USE_COMPRESSION)
+        endif ()
+
+        # 2) Link Privateer
+        add_dependencies(${name} spdlog::spdlog) ## TODO: remove it and test
+        add_dependencies(${name} privateer) ## TODO: remove it and test
+        
+        target_link_libraries(${name} PRIVATE privateer)
+        target_link_libraries(${name} PRIVATE spdlog::spdlog)
+        target_compile_definitions(${name} PRIVATE METALL_USE_PRIVATEER)
+        
     endif ()
     # --------------------
 endfunction()
